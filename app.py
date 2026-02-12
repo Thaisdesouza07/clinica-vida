@@ -9,6 +9,7 @@ def conectar():
     conn.row_factory = sqlite3.Row
     return conn
 
+
 def criar_tabelas():
     conn = conectar()
     cursor = conn.cursor()
@@ -16,18 +17,18 @@ def criar_tabelas():
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS pacientes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nome TEXT,
-            idade INTEGER,
-            telefone TEXT UNIQUE
+            nome TEXT NOT NULL,
+            idade INTEGER NOT NULL,
+            telefone TEXT UNIQUE NOT NULL
         )
     """)
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS consultas (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            paciente_id INTEGER,
-            data TEXT,
-            horario TEXT,
+            paciente_id INTEGER NOT NULL,
+            data TEXT NOT NULL,
+            horario TEXT NOT NULL,
             observacao TEXT,
             FOREIGN KEY (paciente_id) REFERENCES pacientes(id)
         )
@@ -37,25 +38,12 @@ def criar_tabelas():
     conn.close()
 
 
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS consultas (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            paciente_id INTEGER,
-            data TEXT,
-            horario TEXT,
-            observacao TEXT,
-            FOREIGN KEY (paciente_id) REFERENCES pacientes(id)
-        )
-    """)
-
-    conn.commit()
-    conn.close()
+# Criar tabelas uma única vez ao iniciar o app
+criar_tabelas()
 
 
 @app.route("/", methods=["GET", "POST"])
 def index():
-    criar_tabelas()
-
     conn = conectar()
     cursor = conn.cursor()
 
@@ -64,17 +52,20 @@ def index():
         idade = request.form["idade"]
         telefone = request.form["telefone"]
 
-        cursor.execute(
-            "INSERT INTO pacientes (nome, idade, telefone) VALUES (?, ?, ?)",
-            (nome, idade, telefone)
-        )
-        conn.commit()
+        try:
+            cursor.execute(
+                "INSERT INTO pacientes (nome, idade, telefone) VALUES (?, ?, ?)",
+                (nome, idade, telefone)
+            )
+            conn.commit()
+        except sqlite3.IntegrityError:
+            conn.close()
+            return "Paciente já cadastrado com esse telefone."
 
     cursor.execute("SELECT * FROM pacientes")
     pacientes = cursor.fetchall()
 
     conn.close()
-
     return render_template("index.html", pacientes=pacientes)
 
 
@@ -128,9 +119,11 @@ def consultas():
 def cancelar(id):
     conn = conectar()
     cursor = conn.cursor()
+
     cursor.execute("DELETE FROM consultas WHERE id = ?", (id,))
     conn.commit()
     conn.close()
+
     return redirect("/consultas")
 
 
