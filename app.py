@@ -18,9 +18,24 @@ def criar_tabelas():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             nome TEXT,
             idade INTEGER,
-            telefone TEXT
+            telefone TEXT UNIQUE
         )
     """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS consultas (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            paciente_id INTEGER,
+            data TEXT,
+            horario TEXT,
+            observacao TEXT,
+            FOREIGN KEY (paciente_id) REFERENCES pacientes(id)
+        )
+    """)
+
+    conn.commit()
+    conn.close()
+
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS consultas (
