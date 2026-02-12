@@ -1,13 +1,19 @@
 from flask import Flask, render_template, request, redirect
-import sqlite3
+import mysql.connector
 
 app = Flask(__name__)
 
+import os
+import mysql.connector
 
 def conectar():
-    conn = sqlite3.connect("clinica.db")
-    conn.row_factory = sqlite3.Row
-    return conn
+    return mysql.connector.connect(
+        host=os.environ.get("MYSQL_HOST", "localhost"),
+        user=os.environ.get("MYSQL_USER", "root"),
+        password=os.environ.get("MYSQL_PASSWORD", "!Resileincia"),
+        database=os.environ.get("MYSQL_DB", "clinica"),
+        port=int(os.environ.get("MYSQL_PORT", 3306))
+    )
 
 
 def criar_tabelas():
@@ -16,36 +22,36 @@ def criar_tabelas():
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS pacientes (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nome TEXT NOT NULL,
-            idade INTEGER NOT NULL,
-            telefone TEXT UNIQUE NOT NULL
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            nome VARCHAR(100) NOT NULL,
+            idade INT NOT NULL,
+            telefone VARCHAR(20) UNIQUE NOT NULL
         )
     """)
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS consultas (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            paciente_id INTEGER NOT NULL,
-            data TEXT NOT NULL,
-            horario TEXT NOT NULL,
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            paciente_id INT NOT NULL,
+            data DATE NOT NULL,
+            horario TIME NOT NULL,
             observacao TEXT,
             FOREIGN KEY (paciente_id) REFERENCES pacientes(id)
         )
     """)
 
     conn.commit()
+    cursor.close()
     conn.close()
 
 
-# Criar tabelas uma única vez ao iniciar o app
 criar_tabelas()
 
 
 @app.route("/", methods=["GET", "POST"])
 def index():
     conn = conectar()
-    cursor = conn.cursor()
+    cursor = conn.cursor(dictionary=True)
 
     if request.method == "POST":
         nome = request.form["nome"]
@@ -54,17 +60,19 @@ def index():
 
         try:
             cursor.execute(
-                "INSERT INTO pacientes (nome, idade, telefone) VALUES (?, ?, ?)",
+                "INSERT INTO pacientes (nome, idade, telefone) VALUES (%s, %s, %s)",
                 (nome, idade, telefone)
             )
             conn.commit()
-        except sqlite3.IntegrityError:
+        except mysql.connector.Error:
+            cursor.close()
             conn.close()
-            return "Paciente já cadastrado com esse telefone."
+            return "Paciente já cadastrado."
 
     cursor.execute("SELECT * FROM pacientes")
     pacientes = cursor.fetchall()
 
+    cursor.close()
     conn.close()
     return render_template("index.html", pacientes=pacientes)
 
@@ -72,7 +80,7 @@ def index():
 @app.route("/agendar", methods=["GET", "POST"])
 def agendar():
     conn = conectar()
-    cursor = conn.cursor()
+    cursor = conn.cursor(dictionary=True)
 
     cursor.execute("SELECT * FROM pacientes")
     pacientes = cursor.fetchall()
@@ -85,13 +93,15 @@ def agendar():
 
         cursor.execute("""
             INSERT INTO consultas (paciente_id, data, horario, observacao)
-            VALUES (?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s)
         """, (paciente_id, data, horario, observacao))
 
         conn.commit()
+        cursor.close()
         conn.close()
         return redirect("/consultas")
 
+    cursor.close()
     conn.close()
     return render_template("agendar.html", pacientes=pacientes)
 
@@ -99,7 +109,7 @@ def agendar():
 @app.route("/consultas")
 def consultas():
     conn = conectar()
-    cursor = conn.cursor()
+    cursor = conn.cursor(dictionary=True)
 
     cursor.execute("""
         SELECT consultas.id, pacientes.nome, consultas.data,
@@ -110,8 +120,9 @@ def consultas():
     """)
 
     consultas = cursor.fetchall()
-    conn.close()
 
+    cursor.close()
+    conn.close()
     return render_template("consultas.html", consultas=consultas)
 
 
@@ -120,13 +131,13 @@ def cancelar(id):
     conn = conectar()
     cursor = conn.cursor()
 
-    cursor.execute("DELETE FROM consultas WHERE id = ?", (id,))
+    cursor.execute("DELETE FROM consultas WHERE id = %s", (id,))
     conn.commit()
-    conn.close()
 
+    cursor.close()
+    conn.close()
     return redirect("/consultas")
 
 
 if __name__ == "__main__":
     app.run(debug=True)
-
