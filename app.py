@@ -5,8 +5,9 @@ app = Flask(__name__)
 
 
 def conectar():
-    return sqlite3.connect("clinica.db")
-
+    conn = sqlite3.connect("clinica.db")
+    conn.row_factory = sqlite3.Row
+    return conn
 
 def criar_tabelas():
     conn = conectar()
