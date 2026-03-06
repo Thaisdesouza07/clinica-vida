@@ -1,0 +1,131 @@
+from flask import Flask, render_template, request, redirect
+import sqlite3
+
+app = Flask(__name__)
+
+def conectar():
+    conn = sqlite3.connect("clinica.db")
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def criar_tabelas():
+    conn = conectar()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS pacientes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        nome TEXT NOT NULL,
+        idade INTEGER NOT NULL,
+        telefone TEXT UNIQUE NOT NULL
+    )
+    """)
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS consultas (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        paciente_id INTEGER NOT NULL,
+        data TEXT NOT NULL,
+        horario TEXT NOT NULL,
+        observacao TEXT,
+        FOREIGN KEY (paciente_id) REFERENCES pacientes(id)
+    )
+    """)
+
+    conn.commit()
+    conn.close()
+
+criar_tabelas()
+
+
+@app.route("/", methods=["GET", "POST"])
+def index():
+    conn = conectar()
+    cursor = conn.cursor()
+
+    if request.method == "POST":
+        nome = request.form["nome"]
+        idade = request.form["idade"]
+        telefone = request.form["telefone"]
+
+        try:
+            cursor.execute(
+                "INSERT INTO pacientes (nome, idade, telefone) VALUES (?, ?, ?)",
+                (nome, idade, telefone)
+            )
+            conn.commit()
+        except sqlite3.IntegrityError:
+            return "Paciente já cadastrado."
+
+    cursor.execute("SELECT * FROM pacientes")
+    pacientes = cursor.fetchall()
+
+    conn.close()
+
+    return render_template("index.html", pacientes=pacientes)
+
+
+@app.route("/agendar", methods=["GET", "POST"])
+def agendar():
+    conn = conectar()
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT * FROM pacientes")
+    pacientes = cursor.fetchall()
+
+    if request.method == "POST":
+        paciente_id = request.form["paciente_id"]
+        data = request.form["data"]
+        horario = request.form["horario"]
+        observacao = request.form["observacao"]
+
+        cursor.execute("""
+            INSERT INTO consultas (paciente_id, data, horario, observacao)
+            VALUES (?, ?, ?, ?)
+        """, (paciente_id, data, horario, observacao))
+
+        conn.commit()
+        conn.close()
+
+        return redirect("/consultas")
+
+    conn.close()
+
+    return render_template("agendar.html", pacientes=pacientes)
+
+
+@app.route("/consultas")
+def consultas():
+    conn = conectar()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT consultas.id, pacientes.nome, consultas.data,
+               consultas.horario, consultas.observacao
+        FROM consultas
+        JOIN pacientes ON consultas.paciente_id = pacientes.id
+    """)
+
+    lista = cursor.fetchall()
+
+    conn.close()
+
+    return render_template("consultas.html", consultas=lista)
+
+
+@app.route("/cancelar/<int:consulta_id>")
+def cancelar(consulta_id):
+    conn = conectar()
+    cursor = conn.cursor()
+
+    cursor.execute("DELETE FROM consultas WHERE id = ?", (consulta_id,))
+    conn.commit()
+
+    conn.close()
+
+    return redirect("/consultas")
+
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000)

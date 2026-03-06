@@ -1,0 +1,21 @@
+<h2>Agendar Consulta</h2>
+
+<form method="POST">
+    Paciente:<br>
+    <select name="paciente_id" required>
+        {% for p in pacientes %}
+        <option value="{{ p[0] }}">{{ p[1] }}</option>
+        {% endfor %}
+    </select><br><br>
+
+    Data:<br>
+    <input type="date" name="data" required><br><br>
+
+    Horário:<br>
+    <input type="time" name="horario" required><br><br>
+
+    Observação:<br>
+    <input type="text" name="observacao"><br><br>
+
+    <button type="submit">Agendar</button>
+</form>

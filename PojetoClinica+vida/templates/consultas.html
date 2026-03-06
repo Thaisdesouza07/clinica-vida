@@ -1,0 +1,26 @@
+<h2>Consultas Agendadas</h2>
+
+<table border="1">
+    <tr>
+        <th>Paciente</th>
+        <th>Data</th>
+        <th>Horário</th>
+        <th>Observação</th>
+        <th>Ações</th>
+    </tr>
+
+    {% for c in consultas %}
+    <tr>
+        <td>{{ c[1] }}</td>
+        <td>{{ c[2] }}</td>
+        <td>{{ c[3] }}</td>
+        <td>{{ c[4] }}</td>
+        <td>
+            <a href="/cancelar/{{ c[0] }}"
+               onclick="return confirm('Cancelar consulta?')">
+               Cancelar
+            </a>
+        </td>
+    </tr>
+    {% endfor %}
+</table>
